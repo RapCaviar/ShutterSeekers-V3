@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Marker Photo Upload</title>
+    <style>
+        #map { height: 100vh; width: 100%; }
+        #coordinates { 
+            position: fixed; 
+            top: 10px; 
+            left: 10px; 
+            padding: 5px; 
+            background: #eee; 
+            border: 1px solid #ccc; 
+            z-index: 1000; 
+        }
+        .photo-popup, .view-popup {
+    z-index: 1001; /* Higher than overlay */
+}
+        .photo-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 1001;
+            display: none;
+            max-width: 80vw;
+            max-height: 80vh;
+            width: 400px;
+        }
+        .drag-drop-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .drag-drop-area.dragover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+        #output {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #output img {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+        }
+        #close-popup {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        textarea {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+        }
+        .view-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    z-index: 1001;
+    display: none;
+    max-width: 80vw;
+    max-height: 80vh;
+    width: 400px;
+}
+
+.title-input {
+    width: 100%;
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#view-output {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+#view-output img {
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: cover;
+}
+
+#close-view-popup {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: red;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    cursor: pointer;
+}
+
+        #view-description {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+        #clearMarkersBtn {
+            position: fixed;
+            top: 50px;
+            left: 10px;
+            z-index: 1000;
+        }
+        @media (max-width: 600px) {
+            .photo-popup, .view-popup {
+                width: 90vw;
+                max-width: none;
+            }
+        }
+        .overlay {
+    /* ... existing styles ... */
+    background: rgba(0, 0, 0, 0.7); /* Darker overlay */
+    pointer-events: auto; /* Capture all clicks */
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+    z-index: 1000; /* Below popup but above map */
+    display: none; /* Hidden by default */
+}
+
+/* Disable map interactions when overlay is active */
+.overlay-active #map {
+    pointer-events: none;
+}
+
+/* Disable map interactions when overlay is active */
+.overlay-active #map {
+    pointer-events: none;
+}
+    </style>
+</head>
+<body>
+    <div id="coordinates">Move your mouse around!</div>
+    <div id="map"></div>
+    
+    <!-- Updated Photo Popup -->
+    <div class="photo-popup" id="photoPopup">
+        
+        <button id="close-popup">×</button>
+        <h3>Upload Images</h3>
+        <div class="drag-drop-area" id="dragDropArea">
+            <p>Drag & Drop your files here or click</p>
+            <input type="file" id="fileUpload" multiple>
+        </div>
+        <div id="output"></div>
+<!-- Inside photoPopup div -->
+<input type="text" id="markerTitle" placeholder="Enter title" class="title-input">
+<textarea id="imageContent" placeholder="Add description..."></textarea>
+        <div class="button-group">
+            <button id="saveButton">Save and View</button>
+            <button id="moreButton">Add More</button>
+
+            
+        </div>
+    </div>
+    <div class="view-popup" id="viewPopup">
+        <button id="close-view-popup">×</button>
+        <h3 id="view-title"></h3>
+        <div class="coordinates-display">
+            <span>Lat: <span id="view-lat"></span></span>
+            <span>Lng: <span id="view-lng"></span></span>
+        </div>
+        <div id="view-output"></div>
+        <p id="view-description"></p>
+    </div>
+    <button id="clearMarkersBtn" style="position:fixed; top:50px; left:10px; z-index:1000;">Clear All Markers</button>
+    <div id="map"></div>
+    <div class="overlay" id="overlay"></div>  <!-- Add this line -->
+    <script>
+        let map;
+        let markers = [];
+        let activeMarker = null;
+        let currentRedMarker = null;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -34.397, lng: 150.644 },
+                zoom: 8,
+            });
+
+            loadMarkers();
+            
+            map.addListener('click', function(event) {
+    // Remove previous red marker if exists
+    if(currentRedMarker) {
+        currentRedMarker.marker.setMap(null);
+        markers = markers.filter(m => m !== currentRedMarker);
+    }
+    currentRedMarker = addMarker(event.latLng, 'red');
+});
+
+            map.addListener('mousemove', function(event) {
+                updateCoordinates(event.latLng);
+            });
+
+            // Drag and drop handlers
+            const dragDropArea = document.getElementById('dragDropArea');
+            const fileUpload = document.getElementById('fileUpload');
+
+            dragDropArea.addEventListener('click', () => fileUpload.click());
+            
+            ['dragover', 'dragenter'].forEach(event => {
+                dragDropArea.addEventListener(event, (e) => {
+                    e.preventDefault();
+                    dragDropArea.classList.add('dragover');
+                });
+            });
+
+            ['dragleave', 'dragend', 'drop'].forEach(event => {
+                dragDropArea.addEventListener(event, (e) => {
+                    e.preventDefault();
+                    dragDropArea.classList.remove('dragover');
+                });
+            });
+
+            dragDropArea.addEventListener('drop', handleFileDrop);
+            fileUpload.addEventListener('change', handleFileUpload);
+            document.getElementById('close-popup').addEventListener('click', closePhotoPopup);
+            document.getElementById('clearMarkersBtn').addEventListener('click', clearAllMarkers);
+            document.getElementById('saveButton').addEventListener('click', saveMarkerData);
+            document.getElementById('moreButton').addEventListener('click', () => fileUpload.click());
+        }
+
+        function handleFileDrop(e) {
+            const files = e.dataTransfer.files;
+            fileUpload.files = files;
+            handleFileUpload({ target: fileUpload });
+        }
+
+        function handleFileUpload(e) {
+            const files = Array.from(e.target.files);
+            if (!files.length || !activeMarker) return;
+
+            const readerPromises = files.map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(readerPromises).then(imageDataArray => {
+                if (!activeMarker.images) activeMarker.images = [];
+                activeMarker.images.push(...imageDataArray);
+                displayImages();
+                fileUpload.value = '';
+            });
+        }
+
+        function displayImages() {
+            const output = document.getElementById('output');
+            output.innerHTML = '';
+            activeMarker.images.forEach(src => {
+                const img = document.createElement('img');
+                img.src = src;
+                output.appendChild(img);
+            });
+        }
+
+        function saveMarkerData() {
+    // ... existing save code ...
+    currentRedMarker = null; // Add this line
+
+    activeMarker.title = document.getElementById('markerTitle').value;
+    activeMarker.content = document.getElementById('imageContent').value;
+    
+    activeMarker.marker.setIcon({
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: '#0000FF',
+        fillOpacity: 1,
+        strokeWeight: 0,
+        scale: 10,
+    });
+    
+    activeMarker.color = 'blue';
+    saveMarkers();
+    closePhotoPopup();
+}
+function showViewPopup(markerData) {
+    document.getElementById('overlay').style.display = 'block';
+    document.body.classList.add('overlay-active');
+    const viewPopup = document.getElementById('viewPopup');
+    const viewOutput = document.getElementById('view-output');
+    const viewDescription = document.getElementById('view-description');
+    const viewTitle = document.getElementById('view-title');
+    const viewLat = document.getElementById('view-lat');
+    const viewLng = document.getElementById('view-lng');
+
+    // Clear previous content
+    viewOutput.innerHTML = '';
+    
+    // Set coordinates
+    viewLat.textContent = markerData.position.lat().toFixed(6);
+    viewLng.textContent = markerData.position.lng().toFixed(6);
+    
+    // Set title and description
+    viewTitle.textContent = markerData.title || 'Untitled Marker';
+    viewDescription.textContent = markerData.content || 'No description';
+    
+    // Populate images
+    markerData.images.forEach(src => {
+        const img = document.createElement('img');
+        img.src = src;
+        viewOutput.appendChild(img);
+    });
+    
+    viewPopup.style.display = 'block';
+}
+
+function closePhotoPopup() {
+    document.getElementById('overlay').style.display = 'none';
+    document.body.classList.remove('overlay-active');
+    const popup = document.getElementById('photoPopup');
+    popup.style.display = 'none';
+    
+    // Remove unsaved red marker when closing
+    if(currentRedMarker && currentRedMarker.color === 'red') {
+        currentRedMarker.marker.setMap(null);
+        markers = markers.filter(m => m !== currentRedMarker);
+        currentRedMarker = null;
+    }
+    
+    // Clear inputs
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('imageContent').value = '';
+    document.getElementById('markerTitle').value = '';
+    document.getElementById('close-view-popup').addEventListener('click', () => {
+    document.getElementById('viewPopup').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+    document.body.classList.remove('overlay-active');
+});
+        }
+
+    
+            // Close view popup
+
+    // ... [previous code] ...
+
+    function addMarker(location, color) {
+        const marker = new google.maps.Marker({
+            position: location,
+            map: map,
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: color === 'red' ? '#FF0000' : '#0000FF',
+                fillOpacity: 1,
+                strokeWeight: 0,
+                scale: 10,
+            },
+        });
+
+        const markerData = {
+            marker: marker,
+            position: location,
+            color: color,
+            images: [],
+            content: ''
+        };
+
+
+        marker.addListener('click', () => {
+    activeMarker = markerData;
+    if (markerData.color === 'red') {
+        // Show upload popup for red markers
+        document.getElementById('photoPopup').style.display = 'block';
+        document.getElementById('imageContent').value = markerData.content;
+        displayImages();
+    } else {
+        // Show view popup for blue markers
+        showViewPopup(markerData);
+    }
+});
+
+        markers.push(markerData);
+        saveMarkers();
+        return markerData;
+    }
+
+    
+
+    function showPhotoPopup(markerData) {
+        document.getElementById('overlay').style.display = 'block';
+        document.body.classList.add('overlay-active');
+    
+    // Reset fields
+    titleInput.value = markerData.title || '';
+    document.getElementById('imageContent').value = markerData.content || '';
+        
+    // This should only be called for red markers
+    const popup = document.getElementById('photoPopup');
+    const titleInput = document.getElementById('markerTitle');
+    const dragDropArea = document.getElementById('dragDropArea');
+    const saveButton = document.getElementById('saveButton');
+    const moreButton = document.getElementById('moreButton');
+    const output = document.getElementById('output');
+    const imageContent = document.getElementById('imageContent');
+
+    // Reset all elements
+    output.innerHTML = '';
+    imageContent.value = '';
+    dragDropArea.style.display = 'block';
+    saveButton.style.display = 'block';
+    moreButton.style.display = 'block';
+
+    // Show existing content if any
+    if (markerData.images.length > 0) {
+        displayImages();
+    }
+    if (markerData.content) {
+        imageContent.value = markerData.content;
+    }
+    
+    popup.style.display = 'block';
+}
+document.getElementById('close-view-popup').addEventListener('click', () => {
+    document.getElementById('viewPopup').style.display = 'none';
+});
+    // ... [remaining code] ...
+
+
+        // Remaining functions (updateCoordinates, saveMarkers, loadMarkers, clearAllMarkers) remain the same
+        // ... [keep the existing functions unchanged] ...
+         function updateCoordinates(latLng) {
+            const coordinates = document.getElementById('coordinates');
+            coordinates.textContent = `Lat: ${latLng.lat().toFixed(6)}, Lng: ${latLng.lng().toFixed(6)}`;
+        }
+
+        function saveMarkers() {
+    const markersToSave = markers.map(m => ({
+        position: { lat: m.position.lat(), lng: m.position.lng() },
+        color: m.color,
+        images: m.images || [],
+        content: m.content || '',
+        title: m.title || ''
+    }));
+    localStorage.setItem('savedMarkers', JSON.stringify(markersToSave));
+}
+// Add a button to allow more photos to be added to blue markers
+document.getElementById('viewPopup').insertAdjacentHTML('beforeend', `
+    <button id="addMorePhotosButton" style="margin-top: 10px;">Add More Photos</button>
+`);
+
+document.getElementById('addMorePhotosButton').addEventListener('click', () => {
+    if (activeMarker && activeMarker.color === 'blue') {
+        // Show the photo upload popup for the blue marker
+        showPhotoPopup(activeMarker);
+
+        // Pre-fill the popup with existing data
+        document.getElementById('markerTitle').value = activeMarker.title || '';
+        document.getElementById('imageContent').value = activeMarker.content || '';
+        displayImages();
+    }
+});
+function loadMarkers() {
+    const savedMarkers = JSON.parse(localStorage.getItem('savedMarkers')) || [];
+    savedMarkers.forEach(markerData => {
+        const position = new google.maps.LatLng(markerData.position.lat, markerData.position.lng);
+        const marker = addMarker(position, markerData.color);
+        marker.images = markerData.images || [];
+        marker.content = markerData.content || '';
+        marker.title = markerData.title || '';
+    });
+}
+
+
+        function clearAllMarkers() {
+            markers.forEach(m => m.marker.setMap(null));
+            markers = [];
+            localStorage.removeItem('savedMarkers');
+        }
+    </script>
+
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDv1UeZ3iJOrqewg8TszWXkyPG7gRbRW-U&callback=initMap"></script>
+</body>
+</html>
